@@ -50,6 +50,7 @@
             <label class="source-select">问题类型
               <select id="category"><option value="">全部问题</option></select>
             </label>
+            <button type="button" id="export-counts" class="secondary export-button" disabled>导出区域统计 CSV</button>
           </div>
           <div class="map-main">
             <canvas id="district-map" aria-label="上海各区观察地图。也可通过区域列表选择行政区。"></canvas>
@@ -60,7 +61,7 @@
             </div>
             <div class="map-note">上海市区划示意</div>
           </div>
-          <aside class="districts" aria-label="区域记录">
+          <aside class="districts" id="district-panel" aria-label="区域记录">
             <div class="district-summary" aria-live="polite">
               <div class="district-title"><span id="overview-label">上海全市</span><button id="reset-district" class="text-button" hidden>查看全市</button></div>
               <div class="count"><b id="total">—</b><span>条观察记录</span></div>
@@ -68,6 +69,7 @@
             </div>
             <div class="list-label"><span>行政区</span><span>记录数</span></div>
             <div id="district-list"></div>
+            <button type="button" id="expand-districts" class="district-expander" aria-expanded="false" aria-controls="district-list">展开全部 16 区</button>
           </aside>
         </div>
         <p class="map-caption">图中统计的是观察记录，受各区采集范围和提交量影响。<span class="map-attribution">底图 <a href="https://datav.aliyun.com/portal/school/atlas/area_generator/" rel="noreferrer" target="_blank">阿里云 DataV</a></span></p>
@@ -75,7 +77,7 @@
 
       <div class="next-links">
         <a href="#policy"><span>政策解读</span><small>被拍进直播画面时，可以先了解哪些规则？</small><b aria-hidden="true">↗</b></a>
-        <a href="#cases"><span>国内案例</span><small>按场景查找案例，了解争议和处理结果。</small><b aria-hidden="true">↗</b></a>
+        <a href="#cases" id="map-case-link"><span>国内案例</span><small>按场景查找案例，了解争议和处理结果。</small><b aria-hidden="true">↗</b></a>
       </div>
     </section>
 
@@ -119,8 +121,13 @@
         <input class="sr-only" id="photo" type="file" accept="image/*" aria-label="选择一张照片">
         <p id="photo-status" class="help" role="status"></p>
         <div id="photo-editor" hidden>
+          <div class="preview-toolbar">
+            <span id="preview-label">打码预览</span>
+            <button type="button" id="compare-photo" class="secondary" aria-pressed="false">对照原图</button>
+          </div>
           <canvas id="photo-preview" aria-label="照片打码预览"></canvas>
-          <div class="editor-actions">
+          <canvas id="original-preview" aria-label="原图对照，仅当前设备可见" hidden></canvas>
+          <div class="editor-actions" id="mask-actions">
             <button id="skip-detection" class="secondary" type="button" hidden>改用手动打码</button>
             <button id="start-mask" class="secondary" type="button" aria-pressed="false">手动补码</button>
             <button id="remove-mask" class="secondary" type="button" aria-pressed="false">移除误遮挡</button>

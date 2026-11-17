@@ -10,10 +10,13 @@ const days = $('days');
 const category = $('category');
 const districtPicker = $('district');
 const caseCategory = $('case-category');
+const caseLink = $('map-case-link');
+const exportButton = $('export-counts');
 const dialog = $('upload-dialog');
 const form = $('report-form');
 const photoField = $('photo');
 const preview = $('photo-preview');
+const originalPreview = $('original-preview');
 const sampleGrid = document.createElement('canvas');
 const confirmed = $('photo-confirmed');
 const occurred = $('occurred');
@@ -150,8 +153,43 @@ function selectDistrict(name, restoreFocus = false) {
   if (restoreFocus) $('district-list').querySelector('[data-district="' + name + '"]')?.focus({ preventScroll: true });
 }
 
+function relatedCaseType() {
+  return cases.some(entry => entry.category === category.value) ? category.value : '';
+}
+
+caseLink.addEventListener('click', () => {
+  caseCategory.value = relatedCaseType();
+  caseQuery.value = '';
+  showCases();
+});
+
+exportButton.addEventListener('click', () => {
+  const now = Date.now();
+  const range = Number(days.value);
+  const start = shanghaiTime(now - (range - 1) * 86_400_000).slice(0, 10);
+  const end = shanghaiTime(now).slice(0, 10);
+  const kind = category.value || '全部问题';
+  const label = source.selectedOptions[0].textContent;
+  const selected = selectedDistrict ? [selectedDistrict] : districts;
+  const rows = [['行政区', '数据来源', '开始日期', '截止日期', '问题类型', '记录数']];
+  for (const name of selected) rows.push([name, label, start, end, kind, counts[name] || 0]);
+  const csv = rows.map(row => row.map(value => '"' + String(value).replaceAll('"', '""') + '"').join(',')).join('\r\n');
+  const fileURL = URL.createObjectURL(new Blob(['\uFEFF', csv, '\r\n'], { type: 'text/csv;charset=utf-8' }));
+  const download = document.createElement('a');
+  download.href = fileURL;
+  download.download = '上海直播观察-区域统计-' + end + '.csv';
+  document.body.append(download);
+  download.click();
+  download.remove();
+  setTimeout(() => URL.revokeObjectURL(fileURL), 1000);
+});
+
 async function refreshCounts() {
   const key = ++renderSequence;
+  exportButton.disabled = true;
+  const related = relatedCaseType();
+  caseLink.querySelector('span').textContent = related ? '查看' + related + '案例' : '国内案例';
+  caseLink.querySelector('small').textContent = related ? '已按地图选择的问题类型筛选。' : '按场景查找案例，了解争议和处理结果。';
   if (source.value === 'demo') {
     const range = days.value === '7' ? 1 : 0;
     const kind = categories.indexOf(category.value);
@@ -161,6 +199,7 @@ async function refreshCounts() {
     }));
     $('data-note').textContent = '模拟记录，用于体验地图和筛选。';
     showCounts();
+    exportButton.disabled = false;
     return;
   }
   if (trialMode) {
@@ -174,6 +213,7 @@ async function refreshCounts() {
     }
     $('data-note').textContent = '当前浏览器的试用记录。';
     showCounts();
+    exportButton.disabled = false;
     return;
   }
   try {
@@ -185,6 +225,7 @@ async function refreshCounts() {
     counts = data.counts;
     $('data-note').textContent = '本机提交按发生日期汇总。';
     showCounts();
+    exportButton.disabled = false;
   } catch {
     if (key !== renderSequence) return;
     counts = {};
@@ -200,6 +241,12 @@ source.addEventListener('change', () => {
 days.addEventListener('change', refreshCounts);
 category.addEventListener('change', refreshCounts);
 $('reset-district').addEventListener('click', () => selectDistrict(null));
+const districtExpander = $('expand-districts');
+districtExpander.addEventListener('click', () => {
+  const expanded = $('district-panel').classList.toggle('show-all');
+  districtExpander.setAttribute('aria-expanded', String(expanded));
+  districtExpander.textContent = expanded ? '收起区域列表' : '展开全部 16 区';
+});
 mapCanvas.addEventListener('click', event => {
   const rect = mapCanvas.getBoundingClientRect();
   const name = clickedDistrict(features, mapFrame, event.clientX - rect.left, event.clientY - rect.top);
@@ -222,11 +269,41 @@ let photoVersion = 0;
 let maskMode = '';
 let loadingPhoto = false;
 let saving = false;
+let reviewingOriginal = false;
 let worker;
 let toastTimer;
 
-function shanghaiTime() {
-  return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 16);
+function updateSendButton() {
+  send.disabled = saving || loadingPhoto || reviewingOriginal;
+}
+
+function compareOriginal(active) {
+  reviewingOriginal = active;
+  if (active) {
+    setMaskMode('');
+    originalPreview.width = preview.width;
+    originalPreview.height = preview.height;
+    originalPreview.getContext('2d').drawImage(bitmap, 0, 0, originalPreview.width, originalPreview.height);
+  } else {
+    originalPreview.width = 0;
+    originalPreview.height = 0;
+  }
+  originalPreview.hidden = !active;
+  preview.hidden = active;
+  $('mask-actions').hidden = active;
+  confirmed.disabled = active;
+  $('preview-label').textContent = active ? '原图对照 · 仅当前设备可见' : '打码预览';
+  $('compare-photo').textContent = active ? '返回打码图' : '对照原图';
+  $('compare-photo').setAttribute('aria-pressed', String(active));
+  updateSendButton();
+}
+
+$('compare-photo').addEventListener('click', () => {
+  if (bitmap) compareOriginal(!reviewingOriginal);
+});
+
+function shanghaiTime(timestamp = Date.now()) {
+  return new Date(timestamp + 8 * 3600_000).toISOString().slice(0, 16);
 }
 function openUpload() {
   if (!timeEdited) occurred.value = shanghaiTime();
@@ -235,6 +312,7 @@ function openUpload() {
 for (const button of document.querySelectorAll('[data-upload]')) button.addEventListener('click', openUpload);
 $('close-upload').addEventListener('click', () => { if (!saving) dialog.close(); });
 dialog.addEventListener('cancel', event => { if (saving) event.preventDefault(); });
+dialog.addEventListener('close', () => compareOriginal(false));
 occurred.addEventListener('input', () => { timeEdited = Boolean(occurred.value); });
 
 $('locate').addEventListener('click', () => {
@@ -338,7 +416,7 @@ async function detectPhoto(file, key) {
       if (data.key !== photoVersion) return;
       loadingPhoto = false;
       $('skip-detection').hidden = true;
-      send.disabled = false;
+      updateSendButton();
       if (data.boxes) {
         boxes.unshift(...data.boxes);
         editorStatus.textContent = data.boxes.length ?
@@ -356,7 +434,7 @@ async function detectPhoto(file, key) {
       worker = undefined;
       $('skip-detection').hidden = true;
       loadingPhoto = false;
-      send.disabled = false;
+      updateSendButton();
       editorStatus.textContent = '自动打码暂不可用，可以手动框选后继续。';
     };
   }
@@ -372,11 +450,12 @@ function clearPhoto() {
   boxes = [];
   dragStart = draftBox = undefined;
   loadingPhoto = false;
-  send.disabled = saving;
+  updateSendButton();
   confirmed.checked = false;
   editorStatus.textContent = '';
   $('photo-editor').hidden = true;
   $('skip-detection').hidden = true;
+  compareOriginal(false);
   setMaskMode('');
 }
 
@@ -391,13 +470,13 @@ photoField.addEventListener('change', async () => {
   const key = photoVersion;
   editorStatus.textContent = '正在查找照片里的人头…';
   loadingPhoto = true;
-  send.disabled = true;
+  updateSendButton();
   try {
     await detectPhoto(file, key);
   } catch {
     if (key !== photoVersion) return;
     loadingPhoto = false;
-    send.disabled = false;
+    updateSendButton();
     $('skip-detection').hidden = true;
     editorStatus.textContent = bitmap ?
       '无法自动打码，可以手动框选。' :
@@ -422,7 +501,7 @@ $('skip-detection').addEventListener('click', () => {
   worker?.terminate();
   worker = undefined;
   loadingPhoto = false;
-  send.disabled = false;
+  updateSendButton();
   confirmed.checked = false;
   $('skip-detection').hidden = true;
   setMaskMode('draw');
@@ -485,13 +564,13 @@ preview.addEventListener('pointercancel', () => {
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
-  if (saving || loadingPhoto) return;
+  if (saving || loadingPhoto || reviewingOriginal) return;
   if (!bitmap || !confirmed.checked) {
     $('form-message').textContent = '请添加照片并检查打码预览。';
     return;
   }
   saving = true;
-  send.disabled = true;
+  updateSendButton();
   $('form-message').textContent = '';
   try {
     draftBox = undefined;
@@ -540,6 +619,6 @@ form.addEventListener('submit', async event => {
       error.message || '暂时未能提交，请稍后重试。';
   } finally {
     saving = false;
-    send.disabled = false;
+    updateSendButton();
   }
 });

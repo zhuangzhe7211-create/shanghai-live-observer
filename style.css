@@ -53,6 +53,7 @@ nav a[aria-current="page"]::after { content: ""; position: absolute; height: 2px
 .section-heading p, .page-intro p { color: var(--muted); font-size: 13px; }
 .map-card { display: grid; grid-template-columns: minmax(0,1fr) 290px; border: 1px solid #ccdacf; border-radius: 11px; overflow: hidden; background: var(--white); }
 .map-tools { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; padding: 11px 15px; border-bottom: 1px solid var(--line); }
+.export-button { margin-left: auto; white-space: nowrap; }
 .source-select { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; min-width: 0; white-space: nowrap; }
 select, input:not([type=checkbox]), textarea { padding: 8px 10px; border: 1px solid #c7d5cb; border-radius: 6px; background: #fff; min-width: 0; }
 select { padding-right: 22px; }
@@ -76,6 +77,7 @@ select { padding-right: 22px; }
 .district-summary p { margin-top: 7px; }
 .list-label { display: flex; justify-content: space-between; padding: 12px 17px 6px; font-size: 12px; color: var(--muted); }
 #district-list { overflow: auto; scrollbar-width: thin; padding: 0 9px 9px; }
+.district-expander { display: none; }
 .district-row { min-height: 35px; display: grid; grid-template-columns: 56px 1fr 27px; gap: 10px; padding: 6px 8px; width: 100%; align-items: center; text-align: left; background: transparent; border-radius: 4px; font-size: 13px; }
 .district-row:hover, .district-row[aria-pressed="true"] { background: #eaf3e8; color: var(--dark); }
 .district-row strong { text-align: right; font-variant-numeric: tabular-nums; }
@@ -128,7 +130,8 @@ legend { font-weight: 760; padding: 0 0 8px; }
 .help { margin-top: 6px; }
 #photo:focus-visible { outline: 0; }
 fieldset:has(#photo:focus-visible) .file-picker { outline: 3px solid #007c77; outline-offset: 3px; }
-#photo-preview { display: block; width: auto; max-width: 100%; height: auto; max-height: 310px; margin: 9px auto; background: #e8eee6; border-radius: 6px; }
+.preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; color: var(--muted); font-size: 12px; }
+#photo-preview, #original-preview { display: block; width: auto; max-width: 100%; height: auto; max-height: 310px; margin: 9px auto; background: #e8eee6; border-radius: 6px; }
 #photo-preview.drawing { cursor: crosshair; touch-action: none; }
 #photo-preview.erasing { cursor: pointer; touch-action: none; }
 .editor-actions, .location-head { display: flex; gap: 8px 11px; align-items: center; flex-wrap: wrap; }
@@ -174,9 +177,12 @@ textarea { resize: vertical; }
   .map-card { grid-template-columns: minmax(0, 1fr); border-radius: 8px; }
   .map-tools { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; padding: 8px; }
   .map-tools label { display: grid; gap: 4px; font-size: 11px; }
+  .map-tools .export-button { grid-column: 1 / -1; justify-self: end; margin-left: 0; min-height: 29px; font-size: 11px; }
   .map-tools select { font-size: 12px; width: 100%; padding: 6px 2px 6px 6px; min-height: 34px; }
   .map-main { height: clamp(281px, 86vw, 372px); }
-  .districts { height: 267px; border-left: 0; border-top: 1px solid var(--line); }
+  .districts { height: 295px; border-left: 0; border-top: 1px solid var(--line); }
+  .districts.show-all { height: auto; }
+  .district-expander { display: block; width: 100%; padding: 8px 12px; border-top: 1px solid var(--line); background: #f5f8f1; color: var(--green); font-size: 12px; font-weight: 700; text-align: center; }
   .district-summary { padding: 9px 12px 8px; }
   .count b { font-size: 36px; }
   .district-summary p { margin-top: 3px; }
