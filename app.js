@@ -1,4 +1,4 @@
-import { categories, districts, demoRecords, policy, cases } from './content.js';
+import { categories, districts, demoRecords, policy, cases, scenarios } from './content.js?v=scenes';
 import { clickedDistrict, drawMap, findDistrict, loadMap, shortName } from './map.js';
 
 const $ = id => document.getElementById(id);
@@ -14,6 +14,7 @@ const caseLink = $('map-case-link');
 const exportButton = $('export-counts');
 const dialog = $('upload-dialog');
 const form = $('report-form');
+const reportChoices = $('report-categories');
 const photoField = $('photo');
 const preview = $('photo-preview');
 const originalPreview = $('original-preview');
@@ -32,16 +33,24 @@ const localMode = 'livestream-map-mode';
 source.value = sessionStorage.getItem(localMode) === 'local' ? 'local' : 'demo';
 
 for (const name of categories) {
-  for (const select of [category, $('report-category'), caseCategory]) select.add(new Option(name, name));
+  for (const select of [category, caseCategory]) select.add(new Option(name, name));
+  const label = document.createElement('label');
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.name = 'categories';
+  input.value = name;
+  label.append(input, name);
+  reportChoices.append(label);
 }
 for (const district of districts) {
   districtPicker.add(new Option(district === '浦东' ? '浦东新区' : district + '区', district));
 }
 
-function renderArticles(container, items) {
+function renderArticles(container, items, openId) {
   container.replaceChildren();
   for (const entry of items) {
     const detail = document.createElement('details');
+    if (openId && entry.id === openId) detail.open = true;
     const summary = document.createElement('summary');
     const heading = document.createElement('span');
     const title = document.createElement('strong');
@@ -52,8 +61,21 @@ function renderArticles(container, items) {
     tag.textContent = entry.tag;
     heading.append(title, tag);
     summary.append(heading);
-    const paragraph = document.createElement('p');
-    paragraph.textContent = entry.text;
+    detail.append(summary);
+    const fields = entry.focus ?
+      [['发生了什么', entry.text], ['关注什么', entry.focus], ['处理结果', entry.result]] :
+      [['', entry.text]];
+    for (const [label, value] of fields) {
+      if (!value) continue;
+      const paragraph = document.createElement('p');
+      if (label) {
+        const name = document.createElement('strong');
+        name.textContent = label;
+        paragraph.append(name, '　');
+      }
+      paragraph.append(value);
+      detail.append(paragraph);
+    }
     const attribution = document.createElement('p');
     attribution.className = 'source';
     if (entry.link) {
@@ -64,7 +86,7 @@ function renderArticles(container, items) {
       anchor.textContent = entry.source;
       attribution.append(anchor);
     } else attribution.textContent = entry.source;
-    detail.append(summary, paragraph, attribution);
+    detail.append(attribution);
     container.append(detail);
   }
   if (!items.length) {
@@ -76,31 +98,73 @@ function renderArticles(container, items) {
 }
 
 const scope = $('policy-kind');
+const topic = $('policy-topic');
 function showPolicy() {
-  renderArticles($('policy-list'), policy.filter(entry => !scope.value || entry.scope === scope.value));
+  renderArticles($('policy-list'), policy.filter(entry =>
+    (!scope.value || entry.scope === scope.value) && (!topic.value || entry.topic === topic.value)
+  ));
 }
 scope.addEventListener('change', showPolicy);
-showPolicy();
+topic.addEventListener('change', showPolicy);
 
 const caseQuery = $('case-query');
-function showCases() {
+function showCases(openId) {
   const query = caseQuery.value.trim().toLocaleLowerCase();
   renderArticles($('case-list'), cases.filter(entry =>
-    (!caseCategory.value || entry.category === caseCategory.value) &&
-    [entry.title, entry.tag, entry.text].some(value => value.toLocaleLowerCase().includes(query))
-  ));
+    (!caseCategory.value || entry.categories.includes(caseCategory.value)) &&
+    [entry.title, entry.tag, entry.text, entry.focus, entry.result, ...entry.categories]
+      .some(value => value?.toLocaleLowerCase().includes(query))
+  ), openId);
 }
 caseCategory.addEventListener('change', showCases);
 caseQuery.addEventListener('input', showCases);
-showCases();
+
+const scenarioPicker = $('scenario-picker');
+let activeScenario = scenarios[0];
+function showScenario(scenario) {
+  activeScenario = scenario;
+  [...scenarioPicker.children].forEach((button, index) => {
+    button.setAttribute('aria-pressed', String(scenarios[index] === scenario));
+  });
+  $('scenario-heading').textContent = scenario.heading;
+  $('scenario-route').textContent = scenario.route;
+  $('scenario-action').textContent = scenario.action;
+  $('scenario-details').textContent = scenario.details;
+  $('scenario-policy').href = '#policy?topic=' + scenario.topic;
+  $('scenario-case').href = '#cases?case=' + scenario.caseId;
+}
+for (const scenario of scenarios) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = scenario.label;
+  button.setAttribute('aria-controls', 'scenario-panel');
+  button.addEventListener('click', () => showScenario(scenario));
+  scenarioPicker.append(button);
+}
+showScenario(activeScenario);
+$('scenario-report').addEventListener('click', () => openUpload(activeScenario.categories));
 
 function showSection() {
-  const requested = location.hash.slice(1);
+  const [requested, query] = location.hash.slice(1).split('?');
+  const params = new URLSearchParams(query);
   const page = ['map', 'policy', 'cases'].includes(requested) ? requested : 'map';
   for (const section of document.querySelectorAll('.view')) section.hidden = section.id !== page;
   for (const link of document.querySelectorAll('[data-tab]')) {
     if (link.dataset.tab === page) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
+  }
+  if (page === 'policy') {
+    const requestedTopic = params.get('topic');
+    topic.value = policy.some(entry => entry.topic === requestedTopic) ? requestedTopic : '';
+    scope.value = '';
+    showPolicy();
+  }
+  if (page === 'cases') {
+    const filter = params.get('type');
+    caseCategory.value = categories.includes(filter) ? filter : '';
+    caseQuery.value = '';
+    showCases(params.get('case'));
+    $('case-list').querySelector('details[open] summary')?.focus({ preventScroll: true });
   }
   if (requested === 'map-overview') $('map-overview').scrollIntoView();
   else window.scrollTo({ top: 0 });
@@ -153,16 +217,6 @@ function selectDistrict(name, restoreFocus = false) {
   if (restoreFocus) $('district-list').querySelector('[data-district="' + name + '"]')?.focus({ preventScroll: true });
 }
 
-function relatedCaseType() {
-  return cases.some(entry => entry.category === category.value) ? category.value : '';
-}
-
-caseLink.addEventListener('click', () => {
-  caseCategory.value = relatedCaseType();
-  caseQuery.value = '';
-  showCases();
-});
-
 exportButton.addEventListener('click', () => {
   const now = Date.now();
   const range = Number(days.value);
@@ -187,9 +241,14 @@ exportButton.addEventListener('click', () => {
 async function refreshCounts() {
   const key = ++renderSequence;
   exportButton.disabled = true;
-  const related = relatedCaseType();
+  const related = cases.some(entry => entry.categories.includes(category.value)) ? category.value : '';
+  caseLink.href = related ? '#cases?type=' + encodeURIComponent(related) : '#cases';
   caseLink.querySelector('span').textContent = related ? '查看' + related + '案例' : '国内案例';
-  caseLink.querySelector('small').textContent = related ? '已按地图选择的问题类型筛选。' : '按场景查找案例，了解争议和处理结果。';
+  caseLink.querySelector('small').textContent = related ? '按地图上的问题类型查找。' : '按场景查找案例，了解争议和处理结果。';
+  $('report-receipt').hidden = source.value === 'demo' || !$('receipt-types').childElementCount;
+  for (const button of $('receipt-types').children) {
+    button.setAttribute('aria-pressed', String(button.value === category.value));
+  }
   if (source.value === 'demo') {
     const range = days.value === '7' ? 1 : 0;
     const kind = categories.indexOf(category.value);
@@ -207,7 +266,8 @@ async function refreshCounts() {
       - (Number(days.value) - 1) * 86_400_000;
     counts = Object.fromEntries(districts.map(name => [name, 0]));
     for (const record of JSON.parse(sessionStorage.getItem(trialStorageKey) || '[]')) {
-      if (Date.parse(record.occurred) >= start && (!category.value || record.category === category.value)) {
+      if (Date.parse(record.occurred) >= start &&
+          (!category.value || (record.categories ?? [record.category]).includes(category.value))) {
         counts[record.district] += 1;
       }
     }
@@ -302,14 +362,33 @@ $('compare-photo').addEventListener('click', () => {
   if (bitmap) compareOriginal(!reviewingOriginal);
 });
 
+function zoomPhoto(active) {
+  const frame = $('preview-frame');
+  frame.classList.toggle('zoomed', active);
+  frame.tabIndex = active ? 0 : -1;
+  frame.scrollTo(0, 0);
+  $('zoom-photo').setAttribute('aria-pressed', String(active));
+  $('zoom-photo').textContent = active ? '还原大小' : '放大预览';
+  $('zoom-hint').hidden = !active;
+}
+$('zoom-photo').addEventListener('click', event => {
+  setMaskMode('');
+  zoomPhoto(event.currentTarget.getAttribute('aria-pressed') === 'false');
+});
+
 function shanghaiTime(timestamp = Date.now()) {
   return new Date(timestamp + 8 * 3600_000).toISOString().slice(0, 16);
 }
-function openUpload() {
+function openUpload(suggestedCategories = []) {
   if (!timeEdited) occurred.value = shanghaiTime();
+  if (!reportChoices.querySelector(':checked')) {
+    for (const input of reportChoices.querySelectorAll('input')) {
+      input.checked = suggestedCategories.includes(input.value);
+    }
+  }
   dialog.showModal();
 }
-for (const button of document.querySelectorAll('[data-upload]')) button.addEventListener('click', openUpload);
+for (const button of document.querySelectorAll('[data-upload]')) button.addEventListener('click', () => openUpload());
 $('close-upload').addEventListener('click', () => { if (!saving) dialog.close(); });
 dialog.addEventListener('cancel', event => { if (saving) event.preventDefault(); });
 dialog.addEventListener('close', () => compareOriginal(false));
@@ -456,6 +535,7 @@ function clearPhoto() {
   $('photo-editor').hidden = true;
   $('skip-detection').hidden = true;
   compareOriginal(false);
+  zoomPhoto(false);
   setMaskMode('');
 }
 
@@ -569,6 +649,12 @@ form.addEventListener('submit', async event => {
     $('form-message').textContent = '请添加照片并检查打码预览。';
     return;
   }
+  const types = new FormData(form).getAll('categories');
+  if (!types.length) {
+    $('form-message').textContent = '请至少选一种问题类型。';
+    reportChoices.querySelector('input').focus();
+    return;
+  }
   saving = true;
   updateSendButton();
   $('form-message').textContent = '';
@@ -579,14 +665,14 @@ form.addEventListener('submit', async event => {
       id: reportId,
       district: districtPicker.value,
       place: $('place').value,
-      category: $('report-category').value,
+      categories: types,
       description: $('description').value,
       occurred: timeEdited ? occurred.value + ':00+08:00' : null,
       confirmed: true,
     };
     if (trialMode) {
       const records = JSON.parse(sessionStorage.getItem(trialStorageKey) || '[]');
-      records.push({ district: data.district, category: data.category, occurred: data.occurred || new Date().toISOString() });
+      records.push({ district: data.district, categories: types, occurred: data.occurred || new Date().toISOString() });
       sessionStorage.setItem(trialStorageKey, JSON.stringify(records));
     } else {
       data.photo = preview.toDataURL('image/jpeg', .87);
@@ -601,6 +687,22 @@ form.addEventListener('submit', async event => {
     reportId = crypto.randomUUID();
     $('location-status').textContent = '补传旧照片时，可直接填写事发地点。';
     dialog.close();
+    $('receipt-title').textContent = '刚提交一条记录 · ' + (data.district === '浦东' ? '浦东新区' : data.district + '区');
+    const receipt = $('receipt-types');
+    receipt.replaceChildren();
+    for (const type of types) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      button.value = type;
+      button.textContent = type;
+      button.addEventListener('click', () => {
+        selectedDistrict = data.district;
+        category.value = category.value === type ? '' : type;
+        refreshCounts();
+      });
+      receipt.append(button);
+    }
     selectedDistrict = data.district;
     source.value = 'local';
     sessionStorage.setItem(localMode, 'local');

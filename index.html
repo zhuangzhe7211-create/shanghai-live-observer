@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#f5f5ee">
   <title>上海公共空间直播观察</title>
   <link rel="icon" type="image/png" href="./assets/mark.png">
-  <link rel="stylesheet" href="./style.css">
-  <script type="module" src="./app.js"></script>
+  <link rel="stylesheet" href="./style.css?v=scenes">
+  <script type="module" src="./app.js?v=scenes"></script>
 </head>
 <body data-trial="browser">
   <header class="top">
@@ -28,16 +28,37 @@
       <div class="hero">
         <img class="hero-photo" src="./assets/pudong-waterfront.webp" alt="" width="1280" height="570" fetchpriority="high">
         <div class="hero-copy">
-          <h1>上海公共空间<br>直播观察</h1>
-          <p>从街道、广场和滨水步道出发，记录直播现场，查阅相关规则和案例。</p>
+          <h1>上海公共空间直播观察</h1>
+          <p>记录身边的直播现场，找到相关规则和案例。</p>
           <a class="hero-link" href="#map-overview">查看区域地图 <span aria-hidden="true">↓</span></a>
         </div>
       </div>
+
+      <section class="scenario-section" aria-labelledby="scenario-title">
+        <h2 id="scenario-title">我遇到了什么</h2>
+        <div class="scenario-picker" id="scenario-picker" role="group" aria-label="选择遇到的情况"></div>
+        <div class="scenario-panel" id="scenario-panel">
+          <div class="scenario-copy" aria-live="polite">
+            <h3 id="scenario-heading"></h3>
+            <p><strong id="scenario-route"></strong> <span id="scenario-action"></span></p>
+            <p><strong>可以记下</strong> <span id="scenario-details"></span></p>
+          </div>
+          <div class="scenario-actions">
+            <button type="button" class="primary" id="scenario-report">按此场景填写</button>
+            <a id="scenario-policy" href="#policy">看相关规则</a>
+            <a id="scenario-case" href="#cases">看相关案例</a>
+          </div>
+        </div>
+      </section>
 
       <section class="map-section" id="map-overview" aria-labelledby="map-title">
         <div class="section-heading">
           <h2 id="map-title">区域观察地图</h2>
           <p>点选地图或区域列表，查看该区的观察记录。</p>
+        </div>
+        <div class="report-receipt" id="report-receipt" hidden>
+          <div><strong id="receipt-title"></strong><p>这次提交计一条。可按下列类型筛选。</p></div>
+          <div id="receipt-types" class="receipt-types" role="group" aria-label="筛选刚提交的问题类型"></div>
         </div>
         <div class="map-card">
           <div class="map-tools">
@@ -72,7 +93,12 @@
             <button type="button" id="expand-districts" class="district-expander" aria-expanded="false" aria-controls="district-list">展开全部 16 区</button>
           </aside>
         </div>
-        <p class="map-caption">图中统计的是观察记录，受各区采集范围和提交量影响。<span class="map-attribution">底图 <a href="https://datav.aliyun.com/portal/school/atlas/area_generator/" rel="noreferrer" target="_blank">阿里云 DataV</a></span></p>
+        <p class="map-caption">图中数字统计观察记录量。<span class="map-attribution">底图 <a href="https://datav.aliyun.com/portal/school/atlas/area_generator/" rel="noreferrer" target="_blank">阿里云 DataV</a></span></p>
+        <details class="count-explainer">
+          <summary>读懂地图上的数字</summary>
+          <p>演示记录用模拟数据体验筛选。试用记录来自当前试用环境。每次提交计一条记录，同一条记录可出现在多个类型筛选结果中。</p>
+          <p>各区的记录数受观察范围、时段和提交量影响。某区显示 0 条，只表示按当前条件没有查到记录。</p>
+        </details>
       </section>
 
       <div class="next-links">
@@ -87,6 +113,9 @@
         <p>从肖像、隐私和公共空间秩序出发，按场景了解国内规则和域外做法。</p>
       </header>
       <div class="reading-tools">
+        <label class="source-select">主题
+          <select id="policy-topic"><option value="">全部主题</option><option value="privacy">入镜或隐私</option><option value="walkway">通行与现场秩序</option><option value="noise">公共场所噪声</option></select>
+        </label>
         <label class="source-select">解读范围
           <select id="policy-kind"><option value="">全部解读</option><option value="domestic">国内规则</option><option value="international">域外比较</option></select>
         </label>
@@ -97,7 +126,7 @@
     <section id="cases" class="view reading-view" hidden>
       <header class="page-intro">
         <h1>国内案例</h1>
-        <p>按问题查找国内案例，展开后可阅读事实摘要和来源。</p>
+        <p>按问题查找法院公开案例和项目现场观察。</p>
       </header>
       <div class="reading-tools">
         <label class="source-select">搜索案例<input id="case-query" type="search" placeholder="例如外滩、肖像、隐私"></label>
@@ -123,10 +152,16 @@
         <div id="photo-editor" hidden>
           <div class="preview-toolbar">
             <span id="preview-label">打码预览</span>
-            <button type="button" id="compare-photo" class="secondary" aria-pressed="false">对照原图</button>
+            <div>
+              <button type="button" id="zoom-photo" class="secondary" aria-pressed="false" aria-controls="preview-frame">放大预览</button>
+              <button type="button" id="compare-photo" class="secondary" aria-pressed="false">对照原图</button>
+            </div>
           </div>
-          <canvas id="photo-preview" aria-label="照片打码预览"></canvas>
-          <canvas id="original-preview" aria-label="原图对照，仅当前设备可见" hidden></canvas>
+          <div id="preview-frame">
+            <canvas id="photo-preview" aria-label="照片打码预览"></canvas>
+            <canvas id="original-preview" aria-label="原图对照，仅当前设备可见" hidden></canvas>
+          </div>
+          <p id="zoom-hint" class="help" hidden>滑动查看细节。调整时可移除原遮挡，再重新框选。</p>
           <div class="editor-actions" id="mask-actions">
             <button id="skip-detection" class="secondary" type="button" hidden>改用手动打码</button>
             <button id="start-mask" class="secondary" type="button" aria-pressed="false">手动补码</button>
@@ -150,8 +185,8 @@
       </fieldset>
       <fieldset>
         <legend>现场情况</legend>
-        <label class="form-label" for="report-category">问题类型</label>
-        <select id="report-category" required><option value="">选择问题类型</option></select>
+        <p class="form-label" id="report-category-label">问题类型 <small>可多选</small></p>
+        <div id="report-categories" class="choice-list" role="group" aria-labelledby="report-category-label"></div>
         <label class="form-label" for="description">简要经过</label>
         <textarea id="description" rows="3" maxlength="400" required placeholder="例如，直播支架摆在步道中间，行人需要绕行。"></textarea>
       </fieldset>
