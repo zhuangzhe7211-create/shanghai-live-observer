@@ -1,0 +1,4 @@
+上海公共空间直播观察 · 手机演示
+上海区划数据：阿里云 DataV，https://datav.aliyun.com/portal/school/atlas/area_generator/
+人头检测模型：trysem/YOLOv8_head_detector，https://huggingface.co/trysem/YOLOv8_head_detector/tree/5f9ba06
+ONNX Runtime Web 1.22.0：Microsoft，见 ONNX-RUNTIME-LICENSE.txt。
