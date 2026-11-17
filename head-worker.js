@@ -2,7 +2,26 @@ import { env, InferenceSession, Tensor } from './assets/ort.wasm.min.mjs';
 
 env.wasm.numThreads = 1;
 env.wasm.wasmPaths = new URL('./assets/', import.meta.url).href;
-const session = InferenceSession.create(new URL('./assets/head.onnx', import.meta.url).href, { executionProviders: ['wasm'] });
+async function readBinary(name) {
+  const response = await fetch(new URL('./assets/' + name, import.meta.url));
+  if (!response.ok) throw new Error('自动打码文件暂不可用');
+  return response.arrayBuffer();
+}
+
+async function readRuntime() {
+  if (typeof DecompressionStream === 'function') {
+    const compressed = await fetch(new URL('./assets/ort-wasm-simd-threaded.wasm.gz', import.meta.url));
+    if (compressed.ok && compressed.body) {
+      return new Response(compressed.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+    }
+  }
+  return readBinary('ort-wasm-simd-threaded.wasm');
+}
+
+const session = Promise.all([readBinary('head.onnx'), readRuntime()]).then(([model, runtime]) => {
+  env.wasm.wasmBinary = runtime;
+  return InferenceSession.create(model, { executionProviders: ['wasm'] });
+});
 
 function overlap(a, b) {
   const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));

@@ -280,6 +280,7 @@ async function detectPhoto(file, key) {
     worker.onmessage = ({ data }) => {
       if (data.key !== photoVersion) return;
       loadingPhoto = false;
+      $('skip-detection').hidden = true;
       send.disabled = false;
       if (data.boxes) {
         boxes.unshift(...data.boxes);
@@ -296,11 +297,14 @@ async function detectPhoto(file, key) {
     worker.onerror = () => {
       worker.terminate();
       worker = undefined;
+      $('skip-detection').hidden = true;
       loadingPhoto = false;
       send.disabled = false;
       editorStatus.textContent = '自动打码暂不可用，可以手动框选后继续。';
     };
   }
+  $('skip-detection').hidden = false;
+  editorStatus.textContent = '首次加载自动打码可能较慢，也可以立即手动框选。';
   worker.postMessage({ key, bitmap: sample }, [sample]);
 }
 
@@ -315,6 +319,7 @@ function clearPhoto() {
   confirmed.checked = false;
   editorStatus.textContent = '';
   $('photo-editor').hidden = true;
+  $('skip-detection').hidden = true;
   setDrawing(false);
 }
 
@@ -336,6 +341,7 @@ photoField.addEventListener('change', async () => {
     if (key !== photoVersion) return;
     loadingPhoto = false;
     send.disabled = false;
+    $('skip-detection').hidden = true;
     editorStatus.textContent = bitmap ?
       '无法自动打码，可以手动框选。' :
       '无法打开这张图片，请改用 JPG 或 PNG。';
@@ -353,6 +359,18 @@ function point(event) {
 function dragBox(a, b) {
   return { left: Math.min(a[0], b[0]), top: Math.min(a[1], b[1]), right: Math.max(a[0], b[0]), bottom: Math.max(a[1], b[1]) };
 }
+
+$('skip-detection').addEventListener('click', () => {
+  photoVersion += 1;
+  worker?.terminate();
+  worker = undefined;
+  loadingPhoto = false;
+  send.disabled = false;
+  confirmed.checked = false;
+  $('skip-detection').hidden = true;
+  setDrawing(true);
+  editorStatus.textContent = '在照片上拖动，框住需要遮挡的位置。';
+});
 
 $('start-mask').addEventListener('click', () => {
   setDrawing(!editing);
