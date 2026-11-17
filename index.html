@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="上海公共空间直播观察。按区域了解观察记录，查阅政策与国内案例。">
-  <meta name="theme-color" content="#edf1ee">
+  <meta name="theme-color" content="#f5f5ee">
   <title>上海公共空间直播观察</title>
   <link rel="icon" type="image/png" href="./assets/mark.png">
   <link rel="stylesheet" href="./style.css">
@@ -13,7 +13,7 @@
 <body data-trial="browser">
   <header class="top">
     <div class="shell top-inner">
-      <a class="brand" href="#map"><span class="brand-mark" aria-hidden="true">沪</span><span>上海直播观察<small>公共空间观察计划</small></span></a>
+      <a class="brand" href="#map"><span class="brand-mark" aria-hidden="true">沪</span><span>上海直播观察</span></a>
       <nav aria-label="主要功能">
         <a href="#map" data-tab="map">观察地图</a>
         <a href="#policy" data-tab="policy">政策解读</a>
@@ -25,60 +25,93 @@
 
   <main class="shell">
     <section id="map" class="view">
-      <div class="intro">
-        <div>
-          <h1>公共空间直播观察</h1>
-          <p>查看上海各区的观察记录，记录你遇到的直播现场。</p>
+      <div class="hero">
+        <img class="hero-photo" src="./assets/pudong-waterfront.webp" alt="" width="1280" height="570" fetchpriority="high">
+        <div class="hero-copy">
+          <h1>上海公共空间<br>直播观察</h1>
+          <p>从街道、广场和滨水步道出发，记录直播现场，查阅相关规则和案例。</p>
+          <a class="hero-link" href="#map-overview">查看区域地图 <span aria-hidden="true">↓</span></a>
         </div>
-        <label class="source-select">数据来源
-          <select id="data-source"><option value="demo">演示记录</option><option value="local">本次试用记录</option></select>
-        </label>
       </div>
-      <div class="map-card">
-        <div class="map-main">
-          <div class="filters">
-            <label><span class="sr-only">时间范围</span><select id="days"><option value="30">近 30 天</option><option value="7">近 7 天</option></select></label>
-            <label><span class="sr-only">问题类型</span><select id="category"><option value="">全部问题</option></select></label>
-          </div>
-          <canvas id="district-map" aria-label="上海各区观察地图。可通过旁边的区域列表选区。"></canvas>
-          <p class="fallback" id="map-fallback" hidden>底图未加载，可继续在区域列表查看记录。</p>
-          <div class="scale"><span class="swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>记录由少到多</div>
-          <div class="map-note">上海市 · 区域示意</div>
+
+      <section class="map-section" id="map-overview" aria-labelledby="map-title">
+        <div class="section-heading">
+          <h2 id="map-title">区域观察地图</h2>
+          <p>点选地图或区域列表，查看该区的观察记录。</p>
         </div>
-        <aside class="districts" aria-label="区域记录">
-          <div class="district-summary">
-            <div class="district-title"><span id="overview-label">上海全市</span><button id="reset-district" class="text-button" hidden>查看全市</button></div>
-            <div class="count"><b id="total">—</b><span>条观察记录</span></div>
-            <p id="data-note">演示数据，用于体验网站。</p>
+        <div class="map-card">
+          <div class="map-tools">
+            <label class="source-select">数据来源
+              <select id="data-source"><option value="demo">演示记录</option><option value="local">本次试用记录</option></select>
+            </label>
+            <label class="source-select">时间范围
+              <select id="days"><option value="30">近 30 天</option><option value="7">近 7 天</option></select>
+            </label>
+            <label class="source-select">问题类型
+              <select id="category"><option value="">全部问题</option></select>
+            </label>
           </div>
-          <div class="list-label"><span>行政区</span><span>记录数</span></div>
-          <div id="district-list"></div>
-        </aside>
-      </div>
-      <p class="map-caption">记录数受采集范围和提交情况影响。<span class="map-attribution">底图数据 <a href="https://datav.aliyun.com/portal/school/atlas/area_generator/" rel="noreferrer" target="_blank">阿里云 DataV</a></span></p>
+          <div class="map-main">
+            <canvas id="district-map" aria-label="上海各区观察地图。也可通过区域列表选择行政区。"></canvas>
+            <p class="fallback" id="map-fallback" hidden>底图未加载，可在区域列表查看记录。</p>
+            <div class="scale" aria-label="地图图例，颜色越深记录数越多">
+              <span class="swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span>记录由少到多</span>
+            </div>
+            <div class="map-note">上海市区划示意</div>
+          </div>
+          <aside class="districts" aria-label="区域记录">
+            <div class="district-summary" aria-live="polite">
+              <div class="district-title"><span id="overview-label">上海全市</span><button id="reset-district" class="text-button" hidden>查看全市</button></div>
+              <div class="count"><b id="total">—</b><span>条观察记录</span></div>
+              <p id="data-note">演示记录，用于体验筛选。</p>
+            </div>
+            <div class="list-label"><span>行政区</span><span>记录数</span></div>
+            <div id="district-list"></div>
+          </aside>
+        </div>
+        <p class="map-caption">图中统计的是观察记录，受各区采集范围和提交量影响。<span class="map-attribution">底图 <a href="https://datav.aliyun.com/portal/school/atlas/area_generator/" rel="noreferrer" target="_blank">阿里云 DataV</a></span></p>
+      </section>
+
       <div class="next-links">
-        <a href="#policy"><span>政策解读</span><small>看懂肖像、隐私与公共空间秩序</small><b aria-hidden="true">›</b></a>
-        <a href="#cases"><span>国内案例</span><small>了解类似争议如何处理</small><b aria-hidden="true">›</b></a>
+        <a href="#policy"><span>政策解读</span><small>被拍进直播画面时，可以先了解哪些规则？</small><b aria-hidden="true">↗</b></a>
+        <a href="#cases"><span>国内案例</span><small>按场景查找案例，了解争议和处理结果。</small><b aria-hidden="true">↗</b></a>
       </div>
     </section>
 
-    <section id="policy" class="view" hidden>
-      <div class="intro"><div><h1>政策解读</h1><p>从常见问题读懂相关规则，了解域外做法。</p></div></div>
+    <section id="policy" class="view reading-view" hidden>
+      <header class="page-intro">
+        <h1>政策解读</h1>
+        <p>从肖像、隐私和公共空间秩序出发，按场景了解国内规则和域外做法。</p>
+      </header>
+      <div class="reading-tools">
+        <label class="source-select">解读范围
+          <select id="policy-kind"><option value="">全部解读</option><option value="domestic">国内规则</option><option value="international">域外比较</option></select>
+        </label>
+      </div>
       <div class="article-list" id="policy-list"></div>
     </section>
 
-    <section id="cases" class="view" hidden>
-      <div class="intro"><div><h1>国内案例</h1><p>按问题查找案例，读原文了解事实与处理结果。</p></div>
+    <section id="cases" class="view reading-view" hidden>
+      <header class="page-intro">
+        <h1>国内案例</h1>
+        <p>按问题查找国内案例，展开后可阅读事实摘要和来源。</p>
+      </header>
+      <div class="reading-tools">
+        <label class="source-select">搜索案例<input id="case-query" type="search" placeholder="例如外滩、肖像、隐私"></label>
         <label class="source-select">问题类型<select id="case-category"><option value="">全部问题</option></select></label>
       </div>
       <div class="article-list" id="case-list"></div>
     </section>
   </main>
 
-  <footer class="shell footer"><span>上海公共空间直播观察</span><span>高校研究项目 · 手机演示</span></footer>
+  <footer class="shell footer">
+    <div><strong>上海公共空间直播观察</strong><small>高校研究项目 · 手机演示</small></div>
+    <a href="https://commons.wikimedia.org/wiki/File:Pudong_Skyline_from_The_Bund_20260417.jpg" rel="noreferrer" target="_blank">首页摄影：DvTor8303 · CC0</a>
+  </footer>
 
   <dialog id="upload-dialog" aria-labelledby="upload-title">
-    <div class="dialog-head"><div><h2 id="upload-title">上传观察记录</h2><p>请先在预览里检查并遮挡人头和其他可识别信息。</p></div><button type="button" class="icon-close" id="close-upload" aria-label="关闭">×</button></div>
+    <div class="dialog-head"><div><h2 id="upload-title">上传观察记录</h2><p>提交前检查人头、车牌等信息是否遮挡，尽量保留现场地标和环境。</p></div><button type="button" class="icon-close" id="close-upload" aria-label="关闭">×</button></div>
     <form id="report-form">
       <fieldset>
         <legend>现场照片</legend>
@@ -90,6 +123,7 @@
           <div class="editor-actions">
             <button id="skip-detection" class="secondary" type="button" hidden>改用手动打码</button>
             <button id="start-mask" class="secondary" type="button" aria-pressed="false">手动补码</button>
+            <button id="remove-mask" class="secondary" type="button" aria-pressed="false">移除误遮挡</button>
             <button id="undo-mask" class="text-button" type="button">撤销一处</button>
             <button id="cover-all" class="text-button" type="button">遮住整张</button>
           </div>

@@ -1,4 +1,4 @@
-import { categories, districts, policy, cases } from './content.js';
+import { categories, districts, demoRecords, policy, cases } from './content.js';
 import { clickedDistrict, drawMap, findDistrict, loadMap, shortName } from './map.js';
 
 const $ = id => document.getElementById(id);
@@ -14,6 +14,7 @@ const dialog = $('upload-dialog');
 const form = $('report-form');
 const photoField = $('photo');
 const preview = $('photo-preview');
+const sampleGrid = document.createElement('canvas');
 const confirmed = $('photo-confirmed');
 const occurred = $('occurred');
 const send = $('send');
@@ -24,7 +25,6 @@ let mapFrame;
 let counts = {};
 let renderSequence = 0;
 
-const demoCounts = { 黄浦: 24, 浦东: 18, 静安: 13, 徐汇: 11, 杨浦: 9, 虹口: 8, 长宁: 6, 闵行: 5, 普陀: 4, 宝山: 3, 嘉定: 3, 松江: 2, 青浦: 2, 奉贤: 1, 金山: 1, 崇明: 1 };
 const localMode = 'livestream-map-mode';
 source.value = sessionStorage.getItem(localMode) === 'local' ? 'local' : 'demo';
 
@@ -40,9 +40,15 @@ function renderArticles(container, items) {
   for (const entry of items) {
     const detail = document.createElement('details');
     const summary = document.createElement('summary');
+    const heading = document.createElement('span');
+    const title = document.createElement('strong');
+    title.className = 'article-title';
+    title.textContent = entry.title;
     const tag = document.createElement('small');
+    tag.className = 'article-tag';
     tag.textContent = entry.tag;
-    summary.append(entry.title, tag);
+    heading.append(title, tag);
+    summary.append(heading);
     const paragraph = document.createElement('p');
     paragraph.textContent = entry.text;
     const attribution = document.createElement('p');
@@ -60,16 +66,30 @@ function renderArticles(container, items) {
   }
   if (!items.length) {
     const message = document.createElement('p');
-    message.textContent = '该类型暂时没有示例，可以切换其他问题。';
+    message.className = 'empty-state';
+    message.textContent = '没有匹配的条目，请换一个关键词或筛选条件。';
     container.append(message);
   }
 }
 
-renderArticles($('policy-list'), policy);
-renderArticles($('case-list'), cases);
-caseCategory.addEventListener('change', () => renderArticles(
-  $('case-list'), cases.filter(entry => !caseCategory.value || entry.category === caseCategory.value)
-));
+const scope = $('policy-kind');
+function showPolicy() {
+  renderArticles($('policy-list'), policy.filter(entry => !scope.value || entry.scope === scope.value));
+}
+scope.addEventListener('change', showPolicy);
+showPolicy();
+
+const caseQuery = $('case-query');
+function showCases() {
+  const query = caseQuery.value.trim().toLocaleLowerCase();
+  renderArticles($('case-list'), cases.filter(entry =>
+    (!caseCategory.value || entry.category === caseCategory.value) &&
+    [entry.title, entry.tag, entry.text].some(value => value.toLocaleLowerCase().includes(query))
+  ));
+}
+caseCategory.addEventListener('change', showCases);
+caseQuery.addEventListener('input', showCases);
+showCases();
 
 function showSection() {
   const requested = location.hash.slice(1);
@@ -79,7 +99,8 @@ function showSection() {
     if (link.dataset.tab === page) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
-  window.scrollTo({ top: 0 });
+  if (requested === 'map-overview') $('map-overview').scrollIntoView();
+  else window.scrollTo({ top: 0 });
   if (page === 'map') paintMap();
 }
 
@@ -132,9 +153,13 @@ function selectDistrict(name, restoreFocus = false) {
 async function refreshCounts() {
   const key = ++renderSequence;
   if (source.value === 'demo') {
-    const part = (days.value === '7' ? .36 : 1) * (category.value ? .31 : 1);
-    counts = Object.fromEntries(Object.entries(demoCounts).map(([name, count]) => [name, Math.round(count * part)]));
-    $('data-note').textContent = '演示数据，用于体验网站。';
+    const range = days.value === '7' ? 1 : 0;
+    const kind = categories.indexOf(category.value);
+    counts = Object.fromEntries(Object.entries(demoRecords).map(([name, periods]) => {
+      const breakdown = periods[range];
+      return [name, kind < 0 ? breakdown.reduce((sum, count) => sum + count, 0) : breakdown[kind]];
+    }));
+    $('data-note').textContent = '模拟记录，用于体验地图和筛选。';
     showCounts();
     return;
   }
@@ -147,7 +172,7 @@ async function refreshCounts() {
         counts[record.district] += 1;
       }
     }
-    $('data-note').textContent = '本次手机试用的提交记录。';
+    $('data-note').textContent = '当前浏览器的试用记录。';
     showCounts();
     return;
   }
@@ -194,7 +219,7 @@ let boxes = [];
 let dragStart;
 let draftBox;
 let photoVersion = 0;
-let editing = false;
+let maskMode = '';
 let loadingPhoto = false;
 let saving = false;
 let worker;
@@ -238,24 +263,56 @@ $('locate').addEventListener('click', () => {
   }, { enableHighAccuracy: true, timeout: 9500, maximumAge: 30_000 });
 });
 
-function setDrawing(active) {
-  editing = active;
-  $('start-mask').setAttribute('aria-pressed', String(active));
-  preview.classList.toggle('drawing', active);
+function setMaskMode(mode) {
+  maskMode = mode;
+  $('start-mask').setAttribute('aria-pressed', String(mode === 'draw'));
+  $('remove-mask').setAttribute('aria-pressed', String(mode === 'remove'));
+  preview.classList.toggle('drawing', mode === 'draw');
+  preview.classList.toggle('erasing', mode === 'remove');
+}
+
+function paintMask(context, box) {
+  const x = Math.max(0, Math.floor(box.left));
+  const y = Math.max(0, Math.floor(box.top));
+  const width = Math.min(preview.width, Math.ceil(box.right)) - x;
+  const height = Math.min(preview.height, Math.ceil(box.bottom)) - y;
+  if (width < 1 || height < 1) return;
+  if (box.solid) {
+    context.fillStyle = '#182322';
+    context.fillRect(x, y, width, height);
+    return;
+  }
+
+  // Sample only the covered head, with at most four cells on either axis.
+  const scale = 4 / Math.max(width, height);
+  sampleGrid.width = Math.max(1, Math.round(width * scale));
+  sampleGrid.height = Math.max(1, Math.round(height * scale));
+  const sample = sampleGrid.getContext('2d');
+  sample.imageSmoothingQuality = 'high';
+  const sourceX = bitmap.width / preview.width;
+  const sourceY = bitmap.height / preview.height;
+  sample.drawImage(bitmap, x * sourceX, y * sourceY, width * sourceX, height * sourceY,
+    0, 0, sampleGrid.width, sampleGrid.height);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(sampleGrid, x, y, width, height);
+  context.imageSmoothingEnabled = true;
 }
 
 function drawPreview() {
   if (!bitmap) return;
   const ctx = preview.getContext('2d');
   ctx.drawImage(bitmap, 0, 0, preview.width, preview.height);
-  ctx.fillStyle = '#182322';
-  for (const { left, top, right, bottom } of boxes) ctx.fillRect(left, top, right - left, bottom - top);
+  for (const box of boxes) paintMask(ctx, box);
   if (draftBox) {
-    ctx.fillStyle = '#18232280';
+    ctx.fillStyle = '#214e3f6b';
+    ctx.strokeStyle = '#eaf6ed';
     const { left, top, right, bottom } = draftBox;
     ctx.fillRect(left, top, right - left, bottom - top);
+    ctx.strokeRect(left, top, right - left, bottom - top);
   }
   $('undo-mask').disabled = !boxes.length;
+  $('remove-mask').disabled = !boxes.length;
+  if (!boxes.length && maskMode === 'remove') setMaskMode('');
 }
 
 async function detectPhoto(file, key) {
@@ -285,7 +342,7 @@ async function detectPhoto(file, key) {
       if (data.boxes) {
         boxes.unshift(...data.boxes);
         editorStatus.textContent = data.boxes.length ?
-          '已自动遮挡 ' + data.boxes.length + ' 处。请检查背影和远处的人头。' :
+          '已给 ' + data.boxes.length + ' 处头部区域打码，请检查背影和远处的人头。' :
           '没有识别到人头。如果照片里有人，请手动框选。';
       } else {
         editorStatus.textContent = '自动打码暂不可用，可以手动框选后继续。';
@@ -320,7 +377,7 @@ function clearPhoto() {
   editorStatus.textContent = '';
   $('photo-editor').hidden = true;
   $('skip-detection').hidden = true;
-  setDrawing(false);
+  setMaskMode('');
 }
 
 photoField.addEventListener('change', async () => {
@@ -368,16 +425,20 @@ $('skip-detection').addEventListener('click', () => {
   send.disabled = false;
   confirmed.checked = false;
   $('skip-detection').hidden = true;
-  setDrawing(true);
+  setMaskMode('draw');
   editorStatus.textContent = '在照片上拖动，框住需要遮挡的位置。';
 });
 
 $('start-mask').addEventListener('click', () => {
-  setDrawing(!editing);
-  if (editing) editorStatus.textContent = '在照片上拖动，框住需要遮挡的位置。';
+  setMaskMode(maskMode === 'draw' ? '' : 'draw');
+  if (maskMode === 'draw') editorStatus.textContent = '在照片上拖动，只框住需要遮挡的位置。';
+});
+$('remove-mask').addEventListener('click', () => {
+  setMaskMode(maskMode === 'remove' ? '' : 'remove');
+  if (maskMode === 'remove') editorStatus.textContent = '点一下误遮挡的区域将其移除，再检查照片中的人头。';
 });
 $('cover-all').addEventListener('click', () => {
-  boxes.push({ left: 0, top: 0, right: preview.width, bottom: preview.height });
+  boxes.push({ left: 0, top: 0, right: preview.width, bottom: preview.height, solid: true });
   confirmed.checked = false;
   drawPreview();
 });
@@ -387,9 +448,20 @@ $('undo-mask').addEventListener('click', () => {
   drawPreview();
 });
 preview.addEventListener('pointerdown', event => {
-  if (!editing || !bitmap || saving || !event.isPrimary) return;
+  if (!maskMode || !bitmap || saving || !event.isPrimary) return;
+  const [x, y] = point(event);
+  if (maskMode === 'remove') {
+    const index = boxes.findLastIndex(box => x >= box.left && x <= box.right && y >= box.top && y <= box.bottom);
+    if (index < 0) return;
+    boxes.splice(index, 1);
+    confirmed.checked = false;
+    editorStatus.textContent = '已移除一处遮挡，请确认预览中保留的内容。';
+    setMaskMode('');
+    drawPreview();
+    return;
+  }
   preview.setPointerCapture(event.pointerId);
-  dragStart = point(event);
+  dragStart = [x, y];
 });
 preview.addEventListener('pointermove', event => {
   if (!dragStart || !event.isPrimary) return;
@@ -455,8 +527,9 @@ form.addEventListener('submit', async event => {
     sessionStorage.setItem(localMode, 'local');
     category.value = '';
     days.value = '30';
-    location.hash = 'map';
+    location.hash = 'map-overview';
     await refreshCounts();
+    $('map-overview').scrollIntoView();
     const toast = $('toast');
     toast.textContent = trialMode ? '试用记录已计入本次地图。' : '记录已保存到本机。观察地图已更新。';
     toast.hidden = false;

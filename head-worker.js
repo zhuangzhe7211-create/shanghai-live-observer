@@ -43,10 +43,10 @@ function decode(output, scale, offsetX, offsetY, imageWidth, imageHeight) {
     if (score < .22) continue;
     const cx = value(i, 0), cy = value(i, 1);
     const w = value(i, 2), h = value(i, 3);
-    const left = Math.max(0, (cx - .62 * w - offsetX) / scale);
-    const top = Math.max(0, (cy - .63 * h - offsetY) / scale);
-    const right = Math.min(imageWidth, (cx + .62 * w - offsetX) / scale);
-    const bottom = Math.min(imageHeight, (cy + .63 * h - offsetY) / scale);
+    const left = Math.max(0, (cx - .55 * w - offsetX) / scale);
+    const top = Math.max(0, (cy - .56 * h - offsetY) / scale);
+    const right = Math.min(imageWidth, (cx + .55 * w - offsetX) / scale);
+    const bottom = Math.min(imageHeight, (cy + .56 * h - offsetY) / scale);
     if (right > left && bottom > top) candidates.push({ left, top, right, bottom, score });
   }
   return suppressDuplicates(candidates);

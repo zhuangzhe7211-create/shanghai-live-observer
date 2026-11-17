@@ -44,10 +44,10 @@ export function drawMap(canvas, features, counts, selected) {
   canvas.height = Math.round(height * ratio);
   const context = canvas.getContext('2d');
   context.scale(ratio, ratio);
-  context.fillStyle = '#e0efec';
+  context.fillStyle = '#dcece8';
   context.fillRect(0, 0, width, height);
   context.lineWidth = 1;
-  context.strokeStyle = '#d3e6e2';
+  context.strokeStyle = '#d0e3dd';
   for (let x = 0; x < width; x += 52) {
     context.beginPath();
     context.moveTo(x, 0);
@@ -76,8 +76,8 @@ export function drawMap(canvas, features, counts, selected) {
         context.closePath();
       }
     }
-    context.fillStyle = count >= 16 ? '#69a891' : count >= 8 ? '#a4cdb6' : count ? '#c3deca' : '#e9efe2';
-    if (selected === name) context.fillStyle = '#529d86';
+    context.fillStyle = count >= 16 ? '#69a58a' : count >= 8 ? '#a4cbb0' : count ? '#c8dfcb' : '#eef1e3';
+    if (selected === name) context.fillStyle = '#4c9a7d';
     context.fill('evenodd');
     context.lineWidth = selected === name ? 2 : 1.25;
     context.strokeStyle = selected === name ? '#1a6b5c' : '#fbfdf6';
@@ -100,7 +100,7 @@ export function drawMap(canvas, features, counts, selected) {
       context.arc(x, y - 4, radius, 0, Math.PI * 2);
       context.strokeStyle = '#ffffff';
       context.lineWidth = 2;
-      context.fillStyle = name === selected ? '#10473f' : '#276e5f';
+      context.fillStyle = name === selected ? '#10473f' : '#25644f';
       context.fill();
       context.stroke();
       context.fillStyle = '#fff';
