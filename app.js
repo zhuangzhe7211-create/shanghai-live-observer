@@ -1,5 +1,6 @@
 import { categories, districts, demoRecords, policy, cases, scenarios } from './content.js?v=scenes';
 import { clickedDistrict, drawMap, findDistrict, loadMap, shortName } from './map.js';
+import { initFieldwork } from './fieldwork.js?v=1';
 
 const $ = id => document.getElementById(id);
 const trialMode = document.body.dataset.trial === 'browser';
@@ -147,7 +148,7 @@ $('scenario-report').addEventListener('click', () => openUpload(activeScenario.c
 function showSection() {
   const [requested, query] = location.hash.slice(1).split('?');
   const params = new URLSearchParams(query);
-  const page = ['map', 'policy', 'cases'].includes(requested) ? requested : 'map';
+  const page = ['map', 'policy', 'cases', 'fieldwork'].includes(requested) ? requested : 'map';
   for (const section of document.querySelectorAll('.view')) section.hidden = section.id !== page;
   for (const link of document.querySelectorAll('[data-tab]')) {
     if (link.dataset.tab === page) link.setAttribute('aria-current', 'page');
@@ -217,6 +218,18 @@ function selectDistrict(name, restoreFocus = false) {
   if (restoreFocus) $('district-list').querySelector('[data-district="' + name + '"]')?.focus({ preventScroll: true });
 }
 
+function downloadCsv(rows, filename) {
+  const csv = rows.map(row => row.map(value => '"' + String(value).replaceAll('"', '""') + '"').join(',')).join('\r\n');
+  const fileURL = URL.createObjectURL(new Blob(['\uFEFF', csv, '\r\n'], { type: 'text/csv;charset=utf-8' }));
+  const download = document.createElement('a');
+  download.href = fileURL;
+  download.download = filename;
+  document.body.append(download);
+  download.click();
+  download.remove();
+  setTimeout(() => URL.revokeObjectURL(fileURL), 1000);
+}
+
 exportButton.addEventListener('click', () => {
   const now = Date.now();
   const range = Number(days.value);
@@ -227,16 +240,10 @@ exportButton.addEventListener('click', () => {
   const selected = selectedDistrict ? [selectedDistrict] : districts;
   const rows = [['行政区', '数据来源', '开始日期', '截止日期', '问题类型', '记录数']];
   for (const name of selected) rows.push([name, label, start, end, kind, counts[name] || 0]);
-  const csv = rows.map(row => row.map(value => '"' + String(value).replaceAll('"', '""') + '"').join(',')).join('\r\n');
-  const fileURL = URL.createObjectURL(new Blob(['\uFEFF', csv, '\r\n'], { type: 'text/csv;charset=utf-8' }));
-  const download = document.createElement('a');
-  download.href = fileURL;
-  download.download = '上海直播观察-区域统计-' + end + '.csv';
-  document.body.append(download);
-  download.click();
-  download.remove();
-  setTimeout(() => URL.revokeObjectURL(fileURL), 1000);
+  downloadCsv(rows, '上海直播观察-区域统计-' + end + '.csv');
 });
+
+initFieldwork(shanghaiTime, downloadCsv);
 
 async function refreshCounts() {
   const key = ++renderSequence;
